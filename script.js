@@ -1,15 +1,17 @@
-// Paměť naší hry (kde hráč je, co má u sebe a co už se stalo)
+// Paměť naší hry
 let stavHry = {
     lokace: 'chodba',
     inventar: [],
-    znalosti: [], // Pro abstraktní stopy (např. alibi)
+    znalosti: [],
     promluveno: {
         hrabenka: false,
         baron: false,
-        cisnik: false
+        pruvodci: false,
+        baron_konfrontace: false
     },
     zamceno: {
-        zavazadla: true
+        zavazadla: true,
+        kuchyne: true
     }
 };
 
@@ -17,25 +19,57 @@ let stavHry = {
 const lokace = {
     chodba: {
         nazev: 'Temná chodba expresu',
-        popis: 'Stojíš v úzké chodbičce nočního vlaku. Za okny je absolutní tma, projíždíte tunelem. Vlak se rytmicky pohupuje. Cítíš lehký zápach drahého doutníku.',
+        popis: 'Vlak se rytmicky pohupuje temnotou. Chodba je prázdná a spoře osvětlená. Na zemi leží popel z doutníku.',
         moznosti: () => {
             let tlacitka = [
                 { text: 'Vstoupit do kupé hraběnky', akce: () => zmenLokaci('kupe') },
                 { text: 'Zaklepat na kupé Barona Ostrého', akce: () => zmenLokaci('kupe_baron') },
                 { text: 'Jít do jídelního vozu', akce: () => zmenLokaci('jidelna') },
+                { text: 'Jít za průvodčím do lůžkového vozu', akce: () => zmenLokaci('luzkovy_vuz') }
             ];
             
-            // Pokud máme obě hlavní stopy, můžeme jít obvinit
-            if (stavHry.inventar.includes('Natržený lístek na jméno B.O.') && stavHry.inventar.includes('Vlhké perly')) {
-                tlacitka.push({ text: 'Svolat všechny a vznést obvinění!', akce: () => zmenLokaci('rozuzleni') });
+            // Pokud hráč odhalil lékárničku a má obě zásadní stopy
+            if (stavHry.znalosti.includes('Skutečný plán útěku') && stavHry.inventar.includes('Natržený lístek na jméno B.O.')) {
+                tlacitka.push({ text: 'Svolat všechny! Zámada je vyřešena!', akce: () => zmenLokaci('rozuzleni') });
             }
-            
+            return tlacitka;
+        }
+    },
+    luzkovy_vuz: {
+        nazev: 'Lůžkový vůz',
+        popis: 'Starý průvodčí tu sedí na rozkládací židličce a luští křížovku. Na opasku mu chrastí obrovský svazek klíčů.',
+        moznosti: () => {
+            let tlacitka = [
+                { text: 'Vrátit se na chodbu', akce: () => zmenLokaci('chodba') }
+            ];
+
+            if (!stavHry.promluveno.pruvodci) {
+                tlacitka.unshift({
+                    text: 'Zeptat se na pohyb ve vlaku',
+                    akce: () => {
+                        alert('Průvodčí si povzdechne: "Nikdo tudy neprošel. Ale všiml jsem si, že číšník Jules byl dnes hrozně nervózní. A mimochodem, někdo mi sebral univerzální klíč od kuchyně!"');
+                        stavHry.promluveno.pruvodci = true;
+                        stavHry.znalosti.push('Číšník byl nervózní');
+                        vykresliObrazovku();
+                    }
+                });
+            }
+
+            if (stavHry.promluveno.pruvodci && stavHry.zamceno.zavazadla && !stavHry.inventar.includes('Klíč od zavazadel')) {
+                tlacitka.unshift({
+                    text: 'Požádat o odemčení zavazadlového vozu',
+                    akce: () => {
+                        alert('"Zavazadlový vůz? Jistě, tady máte rezervní klíč, detektive. Ale buďte opatrný, je tam tma."');
+                        seberPredmet('Klíč od zavazadel', 'Získal jsi klíč od zavazadlového vozu.');
+                    }
+                });
+            }
             return tlacitka;
         }
     },
     kupe: {
         nazev: 'Kupé hraběnky',
-        popis: 'Místo činu. Hraběnka hystericky pláče v rohu. Na zemi jsou rozsypané perly z falešného náhrdelníku a otevřený prázdný trezor.',
+        popis: 'Místo činu. Hraběnka sedí na pohovce a ovívá se vějířem. Otevřený trezor zeje prázdnotou.',
         moznosti: () => {
             let tlacitka = [
                 { text: 'Vrátit se na chodbu', akce: () => zmenLokaci('chodba') }
@@ -45,9 +79,9 @@ const lokace = {
                 tlacitka.unshift({ 
                     text: 'Vyslechnout hraběnku', 
                     akce: () => {
-                        alert('"Zhasla světla a někdo mě strčil! Ucítila jsem kouř z doutníku a pak už byl trezor prázdný!" vzlyká hraběnka.');
+                        alert('"Někdo zhasl, vrazil do mě a pak byl náhrdelník pryč! Cítila jsem těžký tabák... a slyšela jsem padat perly na zem!"');
                         stavHry.promluveno.hrabenka = true;
-                        stavHry.znalosti.push('Pachatel kouří doutníky');
+                        stavHry.znalosti.push('Pachatel voněl tabákem');
                         vykresliObrazovku();
                     } 
                 });
@@ -55,8 +89,8 @@ const lokace = {
             
             if (!stavHry.inventar.includes('Natržený lístek na jméno B.O.')) {
                 tlacitka.unshift({ 
-                    text: 'Prozkoumat podlahu pod sedadlem', 
-                    akce: () => seberPredmet('Natržený lístek na jméno B.O.', 'Našel jsi pod sedadlem podezřelý útržek jízdenky!') 
+                    text: 'Prozkoumat podlahu', 
+                    akce: () => seberPredmet('Natržený lístek na jméno B.O.', 'Pod kobercem jsi našel lístek, jako by ho tam někdo naaranžoval schválně!') 
                 });
             }
             return tlacitka;
@@ -64,73 +98,68 @@ const lokace = {
     },
     kupe_baron: {
         nazev: 'Kupé Barona Ostrého',
-        popis: 'Baron sedí v křesle, bafá z tlustého doutníku a tváří se arogantně. "Co otravujete, detektive?" zavrčí.',
+        popis: 'Baron sedí v křesle, bafá z doutníku a čte si noviny. "Co zase chcete?" odsekne.',
         moznosti: () => {
             let tlacitka = [
                 { text: 'Vrátit se na chodbu', akce: () => zmenLokaci('chodba') }
             ];
 
-            if (!stavHry.promluveno.baron) {
+            if (!stavHry.promluveno.baron_konfrontace && stavHry.znalosti.includes('Pachatel voněl tabákem') && stavHry.inventar.includes('Natržený lístek na jméno B.O.')) {
                 tlacitka.unshift({
-                    text: 'Zeptat se na jeho alibi',
+                    text: 'Konfrontovat ho s lístkem a tabákem',
                     akce: () => {
-                        alert('"Byl jsem celou dobu tady. Zeptejte se číšníka, před chvílí mi nesl brandy!"');
-                        stavHry.promluveno.baron = true;
+                        alert('"To je můj lístek!" zrudne Baron. "Ztratil jsem ho cestou do jídelny. Někdo mě chce zdiskreditovat! Číšník mi nesl kávu a musel ho sebrat!"');
+                        stavHry.promluveno.baron_konfrontace = true;
+                        stavHry.znalosti.push('Lístek mohl podstrčit číšník');
                         vykresliObrazovku();
                     }
                 });
             }
-
-            // Pokud hráč ví, že pachatel kouří doutníky a Baron je kouří taky
-            if (stavHry.znalosti.includes('Pachatel kouří doutníky')) {
-                tlacitka.unshift({
-                    text: 'Konfrontovat ho ohledně doutníků',
-                    akce: () => {
-                        alert('Baron zbledne. "Nejsem jediný, kdo tu kouří! Ale... dobře, lístek B.O. je můj. Ztratil jsem ho cestou do jídelny, nepřibližoval jsem se k hraběnce!"');
-                        if (!stavHry.znalosti.includes('Baronovo přiznání k lístku')) {
-                            stavHry.znalosti.push('Baronovo přiznání k lístku');
-                        }
-                        vykresliObrazovku();
-                    }
-                });
-            }
-
             return tlacitka;
         }
     },
     jidelna: {
         nazev: 'Jídelní vůz',
-        popis: 'Vůz je prázdný. Na stolech cinkají skleničky. Vzadu jsou dveře do zavazadlového vozu.',
+        popis: 'Vůz je prázdný. Z jedné strany jsou dveře do zavazadel, z druhé do kuchyně.',
         moznosti: () => {
             let tlacitka = [
                 { text: 'Zpět na chodbu', akce: () => zmenLokaci('chodba') }
             ];
 
+            // Dveře do zavazadel
             if (stavHry.zamceno.zavazadla) {
-                if (stavHry.inventar.includes('Malý mosazný klíček')) {
+                if (stavHry.inventar.includes('Klíč od zavazadel')) {
                     tlacitka.unshift({
                         text: 'Odemknout zavazadlový vůz',
                         akce: () => {
-                            alert('Klíček pasuje! Zámek cvakl.');
+                            alert('Klíč od průvodčího pasuje.');
                             stavHry.zamceno.zavazadla = false;
                             vykresliObrazovku();
                         }
                     });
                 } else {
-                    tlacitka.unshift({
-                        text: 'Zkusit otevřít zavazadlový vůz',
-                        akce: () => alert('Zamčeno. Někde tu musí být klíč.')
-                    });
-                    
-                    if (!stavHry.inventar.includes('Malý mosazný klíček')) {
-                        tlacitka.unshift({
-                            text: 'Prohledat pult obsluhy',
-                            akce: () => seberPredmet('Malý mosazný klíček', 'Ve sklenici na dýška jsi našel ukrytý klíček!')
-                        });
-                    }
+                    tlacitka.unshift({ text: 'Zkusit dveře k zavazadlům (Zamčeno)', akce: () => alert('Musíš najít klíč.') });
                 }
             } else {
-                tlacitka.unshift({ text: 'Vstoupit do zavazadlového vozu', akce: () => zmenLokaci('zavazadla') });
+                tlacitka.unshift({ text: 'Jít do zavazadlového vozu', akce: () => zmenLokaci('zavazadla') });
+            }
+
+            // Dveře do kuchyně (odemknou se sponkou)
+            if (stavHry.zamceno.kuchyne) {
+                if (stavHry.inventar.includes('Kovová sponka z perel')) {
+                    tlacitka.unshift({
+                        text: 'Vypáčit dveře do kuchyně pomocí sponky',
+                        akce: () => {
+                            alert('Trocha šikovnosti a starý zámek u kuchyně povolil!');
+                            stavHry.zamceno.kuchyne = false;
+                            vykresliObrazovku();
+                        }
+                    });
+                } else {
+                    tlacitka.unshift({ text: 'Zkusit dveře do kuchyně (Zamčeno zevnitř)', akce: () => alert('Zamčeno, ale je slyšet, jak uvnitř kape voda. Potřebuješ něco tenkého na vypáčení.') });
+                }
+            } else {
+                tlacitka.unshift({ text: 'Vpadnout do kuchyně', akce: () => zmenLokaci('kuchyne') });
             }
 
             return tlacitka;
@@ -138,40 +167,60 @@ const lokace = {
     },
     zavazadla: {
         nazev: 'Zavazadlový vůz',
-        popis: 'Je tu zima a průvan. Z pootevřeného okna prší dovnitř. Vedle okna leží pohozená uniforma obsluhy.',
+        popis: 'Průvan tady sviští naplno z rozbitého okna. Na bedně leží pohozená uniforma obsluhy a pár uvolněných perel.',
         moznosti: () => {
             let tlacitka = [
                 { text: 'Vrátit se do jídelny', akce: () => zmenLokaci('jidelna') }
             ];
 
-            if (!stavHry.inventar.includes('Vlhké perly')) {
+            if (!stavHry.inventar.includes('Kovová sponka z perel')) {
                 tlacitka.unshift({
-                    text: 'Prozkoumat uniformu',
-                    akce: () => seberPredmet('Vlhké perly', 'V kapse uniformy jsi našel pravé perly! Pachatel musel utéct oknem a převléct se.')
+                    text: 'Prozkoumat perly a uniformu',
+                    akce: () => {
+                        seberPredmet('Kovová sponka z perel', 'Našel jsi pevnou kovovou sponku z náhrdelníku. Ty perly tady nenechal omylem – je to falešná stopa, že vyskočil z okna!');
+                        stavHry.znalosti.push('Útěk oknem je falešná stopa');
+                    }
                 });
             }
+            return tlacitka;
+        }
+    },
+    kuchyne: {
+        nazev: 'Lodní kuchyně',
+        popis: 'Uvnitř je tma. V koutě za pytli s moukou se někdo krčí! Je to číšník Jules a v ruce svírá pravý náhrdelník!',
+        moznosti: () => {
+            let tlacitka = [
+                { text: 'Zabavit náhrdelník a vyvést ho ven', akce: () => zmenLokaci('jidelna') }
+            ];
 
+            if (!stavHry.znalosti.includes('Skutečný plán útěku')) {
+                tlacitka.unshift({
+                    text: 'Vyslechnout Julese',
+                    akce: () => {
+                        alert('"Chtěl jsem počkat, až vlak zpomalí v průsmyku! Jak jste poznal, že jsem nevyskočil z okna v zavazadlovém?!" hroutí se Jules.');
+                        stavHry.znalosti.push('Skutečný plán útěku');
+                        vykresliObrazovku();
+                    }
+                });
+            }
             return tlacitka;
         }
     },
     rozuzleni: {
-        nazev: 'Čas zúčtování',
-        popis: 'Všichni se shromáždili v jídelním voze. Je čas ukázat prstem na pachatele.',
+        nazev: 'Finální obvinění',
+        popis: 'Všichni cestující se shromáždili. Číšník Jules klečí na zemi, Baron ho hlídá.',
         moznosti: () => [
-            { text: 'Obvinit Barona Ostrého (Chtěl klenot do sbírky)', akce: () => konecHry(false, 'Baron to nebyl. Lístek mu jen vypadl. Skutečný zloděj unikl oknem!') },
-            { text: 'Obvinit chybějícího číšníka (Falešné stopy a uniforma)', akce: () => konecHry(true, 'Přesně tak! Číšník ukradl perly, podstrčil lístek Barona a unikl zavazadlovým vozem. Případ uzavřen!') },
-            { text: 'Počkat, potřebuji víc času...', akce: () => zmenLokaci('chodba') }
+            { text: 'Uzavřít případ: Číšník chtěl rámovat Barona, nahrál útěk, ale schoval se v kuchyni.', akce: () => konecHry(true, 'Gratuluji, detektive! Odhalil jsi dokonalý plán falešného útěku. Perly jsou zpět u Hraběnky a Jules skončí v poutech na další stanici.') },
+            { text: 'Obvinit z organizace Hraběnku (Pojistný podvod)', akce: () => konecHry(false, 'Hraběnka omdlela pobouřením. I když je podezřelá, chybí ti důkazy a Jules se přiznal ke krádeži na vlastní pěst. Obvinění se nepovedlo.') }
         ]
     }
 };
 
-// Funkce pro přesun mezi místnostmi
 function zmenLokaci(novaLokace) {
     stavHry.lokace = novaLokace;
     vykresliObrazovku();
 }
 
-// Funkce pro sbírání stop
 function seberPredmet(predmet, zprava) {
     stavHry.inventar.push(predmet);
     alert(zprava); 
@@ -180,11 +229,10 @@ function seberPredmet(predmet, zprava) {
 
 function konecHry(vyhra, zprava) {
     const divObrazovka = document.getElementById('hlavni-obrazovka');
-    divObrazovka.innerHTML = `<h2 style="color: ${vyhra ? '#4CAF50' : '#f44336'};">${vyhra ? 'VÍTĚZSTVÍ!' : 'PROHRA'}</h2><p>${zprava}</p>`;
-    divObrazovka.innerHTML += `<button onclick="location.reload()">Hrát znovu</button>`;
+    divObrazovka.innerHTML = `<h2 style="color: ${vyhra ? '#c9a75d' : '#f44336'};">${vyhra ? 'ZÁHADA VYŘEŠENA' : 'ŠPATNÁ ÚVAHA'}</h2><p style="font-size: 18px; line-height: 1.6;">${zprava}</p>`;
+    divObrazovka.innerHTML += `<button style="margin-top: 20px; text-align: center;" onclick="location.reload()">Hrát znovu</button>`;
 }
 
-// Vykreslování - nyní obsahuje i "Znalosti" v inventáři
 function vykresliObrazovku() {
     const aktualni = lokace[stavHry.lokace];
     
@@ -204,24 +252,22 @@ function vykresliObrazovku() {
     const seznamInv = document.getElementById('seznam-inventare');
     seznamInv.innerHTML = '';
     
-    // Vykreslení předmětů
     if (stavHry.inventar.length > 0) {
-        seznamInv.innerHTML += '<h4 style="margin-bottom: 5px; color: #aaa;">Fyzické stopy:</h4>';
+        seznamInv.innerHTML += '<h4>V kapse:</h4>';
         stavHry.inventar.forEach(polozka => {
-            seznamInv.innerHTML += `<li style="color: #fff;">${polozka}</li>`;
+            seznamInv.innerHTML += `<li>${polozka}</li>`;
         });
     }
 
-    // Vykreslení znalostí
     if (stavHry.znalosti.length > 0) {
-        seznamInv.innerHTML += '<h4 style="margin-top: 15px; margin-bottom: 5px; color: #aaa;">Poznatky:</h4>';
+        seznamInv.innerHTML += '<h4 style="margin-top: 15px;">Zápisník:</h4>';
         stavHry.znalosti.forEach(polozka => {
-            seznamInv.innerHTML += `<li style="color: #88ccff;">${polozka}</li>`;
+            seznamInv.innerHTML += `<li style="border-left-color: #6a9ac4;">${polozka}</li>`;
         });
     }
 
     if (stavHry.inventar.length === 0 && stavHry.znalosti.length === 0) {
-        seznamInv.innerHTML = '<li>Zatím žádné stopy...</li>';
+        seznamInv.innerHTML = '<li style="border: none; background: transparent; padding: 0;">Zatím žádné stopy...</li>';
     }
 }
 
